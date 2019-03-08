@@ -2,7 +2,7 @@
   "name": "wery-nice-logger",
   "version": "0.0.5",
   "description": "a logger",
-  "main": "./lib/index.js",
+  "main": "./index.js",
   "repository": {
     "type": "git",
     "url": "https://github.com/jEnbuska/wery-nice-logger"
