@@ -40,26 +40,44 @@ type NiceLogger = NiceLoggerConsole & {
 
 export function createLogger({console: c = console, filter = () => true, format = defaultFormat, silent = false}: {console?: NiceLoggerConsole, filter?: NiceLoggerFilter, format?: NiceLoggerFormatter, silent?: boolean} = {}): NiceLogger {
     const ctx = {filter, format, silent, console: c};
+    const shouldWriteToConsole: NiceLoggerFilter = (obj) => {
+        try {
+            return ctx.filter(obj)
+        } catch(e){
+            console.error('loggers filter failed', e, 'filter defaulting to true')
+            return true;
+        }
+    }
+
+    const formatConsoleData: NiceLoggerFormatter = (obj) => {
+        try {   
+            return ctx.format(obj);
+        } catch (e) {
+            console.error('loggers format failed', e, 'printing raw arguments instead')
+            return obj.args
+        }
+    } 
+
     return {
         log(...args: any[]) {
             if(ctx.silent) return;
             const stackInfo = createStackInfo();
-            if(ctx.filter({args, stackInfo, func: 'log'})) {
-                ctx.console.log(ctx.format({stackInfo, args, func: 'log'}))
+            if(shouldWriteToConsole({args, stackInfo, func: 'log'})) {
+                ctx.console.log(formatConsoleData({stackInfo, args, func: 'log'}))
             }
         },
         warn(...args: any[]) {
             if(ctx.silent) return;
             const stackInfo = createStackInfo();
-            if(ctx.filter({args, stackInfo, func: 'warn'})) {
-                ctx.console.warn(ctx.format({stackInfo, args, func: 'warn'}))
+            if(shouldWriteToConsole({args, stackInfo, func: 'warn'})) {
+                ctx.console.warn(formatConsoleData({stackInfo, args, func: 'warn'}))
             }
         },
         error(...args: any[]) {
             if(ctx.silent) return;
             const stackInfo = createStackInfo();
-            if(ctx.filter({args, stackInfo, func: 'error'})) {
-                ctx.console.error(ctx.format({stackInfo, args, func: 'error'}))
+            if(shouldWriteToConsole({args, stackInfo, func: 'error'})) {
+                ctx.console.error(formatConsoleData({stackInfo, args, func: 'error'}))
             }
         },
         get console(){
