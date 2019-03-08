@@ -1,0 +1,21 @@
+{
+  "name": "nice-logger",
+  "version": "0.0.0",
+  "description": "a logger",
+  "main": "./index.js",
+  "scripts": {
+    "test": "echo 'all well'",
+    "start": "typescript --watch",
+    "build": "tsc"
+  },
+  "author": "joonaenb@gmail.com",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^11.10.5",
+    "nodemon": "^1.18.10",
+    "typescript": "^3.3.3333"
+  },
+  "dependencies": {
+    "capture-stack-trace": "^1.0.1"
+  }
+}
