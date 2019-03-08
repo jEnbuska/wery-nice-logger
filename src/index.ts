@@ -31,58 +31,60 @@ const defaultFormat: NiceLoggerFormatter = ({args, stackInfo}) => {
     return ["\x1b[0m", args.join(' '), '    ',"\x1b[34m", `${filePlusLine}`,"\x1b[0m", ,"\x1b[2m", '\t\t', `ƒ:${func}`, "\x1b[0m"].join('')
 }
 
-export function createLogger({console: c = console, filter = () => true, format = defaultFormat, silent = false}: {console?: NiceLoggerConsole, filter?: NiceLoggerFilter, format?: NiceLoggerFormatter, silent?: boolean} = {}){
+type NiceLogger = NiceLoggerConsole & {
+    console: NiceLoggerConsole;
+    filter: NiceLoggerFilter;
+    format: NiceLoggerFormatter;
+    silent: boolean;
+}
+
+export function createLogger({console: c = console, filter = () => true, format = defaultFormat, silent = false}: {console?: NiceLoggerConsole, filter?: NiceLoggerFilter, format?: NiceLoggerFormatter, silent?: boolean} = {}): NiceLogger {
     const ctx = {filter, format, silent, console: c};
-    return Object.defineProperties({}, {
-        log: {
-            writable: false,
-            value(...args: any[]) {
-                if(ctx.silent) return;
-                const stackInfo = createStackInfo();
-                if(ctx.filter({args, stackInfo, func: 'log'})) {
-                    ctx.console.log(ctx.format({stackInfo, args, func: 'log'}))
-                }
-            },
-        },
-        warn: {
-            writable: false,
-            value(...args: any[]) {
-                if(ctx.silent) return;
-                const stackInfo = createStackInfo();
-                if(ctx.filter({args, stackInfo, func: 'warn'})) {
-                    ctx.console.warn(ctx.format({stackInfo, args, func: 'warn'}))
-                }
+    return {
+        log(...args: any[]) {
+            if(ctx.silent) return;
+            const stackInfo = createStackInfo();
+            if(ctx.filter({args, stackInfo, func: 'log'})) {
+                ctx.console.log(ctx.format({stackInfo, args, func: 'log'}))
             }
         },
-        error: {
-            writable: false,
-            value(...args: any[]) {
-                if(ctx.silent) return;
-                const stackInfo = createStackInfo();
-                if(ctx.filter({args, stackInfo, func: 'error'})) {
-                    ctx.console.error(ctx.format({stackInfo, args, func: 'error'}))
-                }
+        warn(...args: any[]) {
+            if(ctx.silent) return;
+            const stackInfo = createStackInfo();
+            if(ctx.filter({args, stackInfo, func: 'warn'})) {
+                ctx.console.warn(ctx.format({stackInfo, args, func: 'warn'}))
             }
         },
-        console: {
-            set(value: NiceLoggerConsole) {
-                ctx.console = value;
-            },
-        },
-        filter: {
-            set(value: NiceLoggerFilter){
-                ctx.filter = value;
+        error(...args: any[]) {
+            if(ctx.silent) return;
+            const stackInfo = createStackInfo();
+            if(ctx.filter({args, stackInfo, func: 'error'})) {
+                ctx.console.error(ctx.format({stackInfo, args, func: 'error'}))
             }
         },
-        format: {
-            set(value: NiceLoggerFormatter) {
-                ctx.format = value;
-            },
+        get console(){
+            return ctx.console;
         },
-        silent: {
-            set(value: boolean) {
-                ctx.silent = value;
-            }
+        set console(value: NiceLoggerConsole) {
+            ctx.console = value;
+        },
+        get filter(){
+            return ctx.filter;
+        },
+        set filter(value: NiceLoggerFilter){
+            ctx.filter = value;
+        },
+        get format() {
+            return ctx.format
+        },
+        set format(value: NiceLoggerFormatter) {
+            ctx.format = value;
+        },
+        get silent(){
+            return ctx.silent;
+        },
+        set silent(value: boolean) {
+            ctx.silent = value;
         }
-    })
+    }
 }
