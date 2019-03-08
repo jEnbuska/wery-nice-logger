@@ -28,7 +28,7 @@ export function createStackInfo(): NiceStack {
 const defaultFormat: NiceLoggerFormatter = ({args, stackInfo}) => {
     const [{line = '<?>', func = '<?>', file = '<?>'} = {}] = stackInfo;
     const filePlusLine = `${file}:${line}`
-    return ["\x1b[0m", args.join(' '), '    ',"\x1b[34m", `${filePlusLine}`,"\x1b[0m", ,"\x1b[2m", '\t\t', `ƒ:${func}`, "\x1b[0m"].join('')
+    return ["\x1b[0m", args.join(' '), '    ',"\x1b[4m", `${filePlusLine}`,"\x1b[0m", ,"\x1b[2m", '\t\t', `ƒ:${func}`, "\x1b[0m"].join('')
 }
 
 type NiceLogger = NiceLoggerConsole & {
