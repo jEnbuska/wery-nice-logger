@@ -1,8 +1,12 @@
 {
-  "name": "nice-logger",
+  "name": "wery-nice-logger",
   "version": "0.0.0",
   "description": "a logger",
   "main": "./index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jEnbuska/wery-nice-logger"
+  },
   "scripts": {
     "test": "echo 'all well'",
     "start": "typescript --watch",

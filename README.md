@@ -1,3 +1,3 @@
 # nice logger
 
-A nice logged
+Log stuff for greyt fun
