@@ -1,6 +1,6 @@
 {
   "name": "wery-nice-logger",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "a logger",
   "main": "./index.js",
   "repository": {
