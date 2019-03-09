@@ -9,7 +9,9 @@
   },
   "scripts": {
     "test": "echo 'all well'",
-    "build": "tsc"
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
+    "postversion": "git push"
   },
   "author": "joonaenb@gmail.com",
   "license": "ISC",
