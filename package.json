@@ -1,6 +1,6 @@
 {
   "name": "wery-nice-logger",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "a logger",
   "main": "./index.js",
   "repository": {
@@ -9,10 +9,7 @@
   },
   "scripts": {
     "test": "echo 'all well'",
-    "build": "tsc",
-    "prepare": "npm run build",
-    "version": "git add -A",
-    "postversion": "git push && git push --tags"
+    "build": "tsc"
   },
   "author": "joonaenb@gmail.com",
   "license": "ISC",

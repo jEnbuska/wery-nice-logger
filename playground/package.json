@@ -1,0 +1,15 @@
+{
+  "name": "wery-nice-logger-playground",
+  "version": "1.0.0",
+  "description": "platground",
+  "main": "index.js",
+  "scripts": {
+    "start": "ts-node-dev --respawn index.ts"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "ts-node-dev": "^1.0.0-pre.32",
+    "typescript": "^3.3.3333"
+  }
+}
