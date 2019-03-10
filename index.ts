@@ -1,68 +1,96 @@
-export type NiceloggerLogLevel = 'log' | 'warn' | 'error'
-export type NiceLoggerConsole = Pick<typeof console, NiceloggerLogLevel>;
-export type NiceLoggerFilter = ({stackInfo, args, func}: {stackInfo: NiceStack, args: any[], func: NiceloggerLogLevel}) => boolean;
-export type NiceLoggerFormatter = ({stackInfo, args, func}: {stackInfo: NiceStack, args: any[], func: NiceloggerLogLevel}) => any;
-export type NiceStack = ({file: string, func: string, char: string, line: string})[]
+export type NiceloggerLogLevel = 'log' | 'warn' | 'error' | 'catch'
+export type NiceLoggerConsole = Pick<typeof console, 'log' | 'warn' | 'error'>;
+export type NiceFormattable = {traceInfo: NiceTrace, args: any[], level: NiceloggerLogLevel}
+export type NiceLoggerFormatter = ({traceInfo, args, level}: NiceFormattable) => any | any[];
+export type NiceTrace = ({file: string, func: string, char: string, line: string})[]
 
-const defaultFormat: NiceLoggerFormatter = ({args, stackInfo}) => {
-    const [{line = '<?>', file = '<?>'} = {}] = stackInfo;
+const defaultFormat: NiceLoggerFormatter = ({args, traceInfo, level}) => {
+    const [{line = '<?>', file = '<?>'} = {}] = traceInfo;
     const filePlusLine = `${file}:${line}`    
-    const func = stackInfo.map(({func}) => {
-        return func.startsWith('Object.') 
-            ? func.replace('Object.', '') 
-            : func
-    }).join(' <| ');
-    
-    return ["\x1b[0m", args.join(' '), '\n',"\x1b[4m", `${filePlusLine}`,"\x1b[0m", ,"\x1b[2m", '  \t', `ƒ ${func}`, "\x1b[0m"].join('')
+    const func = traceInfo.map(({func}) => func).join(' <| ');
+    if(level === 'catch') {
+        const [err, ...rest] = args;
+        args = [err, '\n', ...rest];
+    }
+    return ["\x1b[0m", ...args, '\n',"\x1b[4m", `${filePlusLine}`,"\x1b[0m", "\x1b[2m", '  \t', `ƒ ${func}`, "\x1b[0m"]
 }
 
 type NiceLogger = NiceLoggerConsole & {
+    catch: (err: Error, ...params: any[]) => void;
     console: NiceLoggerConsole;
-    filter: NiceLoggerFilter;
     format: NiceLoggerFormatter;
     silent: boolean;
     pathPrefix: string;
+    filterArgs: RegExp;
+    filterFunc: RegExp;
+    filterFile: RegExp;
+    filterLevels: NiceloggerLogLevel[];
 }
 
-export function createStackInfo(pathPrefix: string): NiceStack {
-    const ctx: {stack?: string} = {}
-    const filePath = require.main!.filename.split('/')
-    filePath.pop();
-    const mainDirectory = filePath.join('/');
-    Error.captureStackTrace(ctx);
-    const rows = ctx.stack!.split('\n').splice(3).map(row => row.trim())
+const regExpAll = /.*/;
+const allLogLevels: NiceloggerLogLevel [] = ['log', 'error', 'warn', 'catch'];
+export function createLogger(constructorObj: Partial<NiceLogger> = {}): NiceLogger {
+    const {
+        console: c = console, 
+        filterArgs = regExpAll, 
+        filterFunc = regExpAll,
+        filterFile = regExpAll,
+        filterLevels = allLogLevels,
+        format = defaultFormat, 
+        pathPrefix = '.', 
+        silent = false, 
+    } = constructorObj;
+    let symbolTextWarned = false;
+    const ctx = {console: c, filterArgs, filterFunc, filterFile, filterLevels, format, pathPrefix, silent};
     
-    const out = [];
-    for(const row of rows) {
-        let [position, ...rest] = row.split(' ').reverse().filter(it => !/^\[|at|\]$/.test(it));
-        position = position.substring(1, position.length-1);
-        const func = rest.join(' ')
-        const outerOrInternalModule = !position.startsWith('/')
-        const [char, line, ...filePath] = position.split(':').reverse();        
-        const file = filePath.reverse().join(':').replace(mainDirectory, '');
-        out.push({
-            file: `${pathPrefix}${file}`, 
-            func, 
-            char, 
-            line
-        });
-        if(outerOrInternalModule) break;
-    }
-    return out;
-}
-export function createLogger({console: c = console, filter = () => true, format = defaultFormat, pathPrefix = '.', silent = false}: {console?: NiceLoggerConsole, filter?: NiceLoggerFilter, format?: NiceLoggerFormatter, silent?: boolean, pathPrefix?: string} = {}): NiceLogger {
-    const ctx = {filter, format, silent, pathPrefix, console: c};
-    
-    const shouldWriteToConsole: NiceLoggerFilter = (obj) => {
-        try {
-            return ctx.filter(obj)
-        } catch(e){
-            console.error('loggers filter failed', e, 'filter defaulting to true')
-            return true;
+    function createTraceInfo(stack: string, jumpBack: number): NiceTrace {
+        const filePath = require.main!.filename.split('/')
+        filePath.pop();
+        const mainDirectory = filePath.join('/');    
+        const rows = stack.split('\n').splice(jumpBack).map(row => row.trim())
+        
+        const out = [];
+        for(const row of rows) {
+            let [position, ...rest] = row.split(' ').reverse().filter(it => !/^\[|^at$|\]$/.test(it));
+            position = position.substring(1, position.length-1);
+            const func = rest.join(' ')
+            const [char, line, ...filePath] = position.split(':').reverse();        
+            const file = filePath.reverse().join(':').replace(mainDirectory, '');
+            out.push({
+                file: `${pathPrefix}${file}`, 
+                func, 
+                char, 
+                line
+            });
         }
+        return out;
+    }
+    const filterSome = (args: any[], test: (arg: any) => boolean) => {        
+        return args.some((arg) => {
+            const t = typeof arg;
+            switch(t) {
+                case 'symbol': {
+                    if(!symbolTextWarned) {
+                        symbolTextWarned = true;
+                        console.warn('wery-nice-logger does not know how to filter Symbol text')
+                    }
+                    return false;
+                }
+                case 'object': {
+                    if(arg instanceof Error) {
+                        break;
+                    } else if(arg instanceof RegExp) {
+                        break;
+                    } else {
+                        JSON.stringify(arg);
+                    }
+                }
+            }
+            return test(arg);
+        })
     }
 
-    const formatConsoleData: NiceLoggerFormatter = (obj) => {
+    const doFormat = (obj: NiceFormattable) => {
         try {   
             return ctx.format(obj);
         } catch (e) {
@@ -71,39 +99,33 @@ export function createLogger({console: c = console, filter = () => true, format 
         }
     } 
 
+    const createLogger = (level: NiceloggerLogLevel) => (...args: any[]) => {
+        if(ctx.silent) return;
+        if(!filterSome([level], (level) => ctx.filterLevels.includes(level))) return;
+        if(!filterSome(args, (arg) => ctx.filterArgs.test(arg))) return;        
+        const current: {stack?: string} = {}
+        Error.captureStackTrace(current);
+        const traceInfo = createTraceInfo(current.stack!, 2);
+        let searchTraceInfo;
+        if(level === 'catch') searchTraceInfo = [...traceInfo, ...createTraceInfo(args[0].stack, 1) ];
+        else searchTraceInfo = traceInfo;
+        if(!filterSome(searchTraceInfo.map(it => it.func), (func) => ctx.filterFunc.test(func))) return;
+        if(!filterSome(searchTraceInfo.map(it => it.file), file => ctx.filterFile.test(file))) return;
+        const formatted = doFormat({traceInfo, args, level})
+        ctx.console[level === 'catch' ? 'error' : level](...formatted);
+    }
+
+    
     return {
-        log(...args: any[]) {
-            if(ctx.silent) return;
-            const stackInfo = createStackInfo(ctx.pathPrefix);
-            if(shouldWriteToConsole({args, stackInfo, func: 'log'})) {
-                ctx.console.log(formatConsoleData({stackInfo, args, func: 'log'}))
-            }
-        },
-        warn(...args: any[]) {
-            if(ctx.silent) return;
-            const stackInfo = createStackInfo(ctx.pathPrefix);
-            if(shouldWriteToConsole({args, stackInfo, func: 'warn'})) {
-                ctx.console.warn(formatConsoleData({stackInfo, args, func: 'warn'}))
-            }
-        },
-        error(...args: any[]) {
-            if(ctx.silent) return;
-            const stackInfo = createStackInfo(ctx.pathPrefix);
-            if(shouldWriteToConsole({args, stackInfo, func: 'error'})) {
-                ctx.console.error(formatConsoleData({stackInfo, args, func: 'error'}))
-            }
-        },
+        log: createLogger('log'),
+        warn: createLogger('warn'),
+        error: createLogger('error'),
+        catch: createLogger('catch'),
         get console(){
             return ctx.console;
         },
         set console(value: NiceLoggerConsole) {
             ctx.console = value;
-        },
-        get filter(){
-            return ctx.filter;
-        },
-        set filter(value: NiceLoggerFilter){
-            ctx.filter = value;
         },
         get format() {
             return ctx.format
@@ -122,6 +144,30 @@ export function createLogger({console: c = console, filter = () => true, format 
         },
         set pathPrefix(value: string) {
             ctx.pathPrefix = value;
-        }
+        },
+        get filterFile(){
+            return ctx.filterFile;
+        },
+        set filterFile(value: RegExp) {
+            ctx.filterFile = value;
+        },
+        get filterLevels(){
+            return ctx.filterLevels;
+        },
+        set filterLevels(value: NiceloggerLogLevel[]) {
+            ctx.filterLevels = value;
+        },
+        get filterArgs(){
+            return ctx.filterArgs;
+        },
+        set filterArgs(value: RegExp) {
+            ctx.filterArgs = value;
+        },
+        set filterFunc(value: RegExp) {
+            ctx.filterFunc = value;
+        },
+        get filterFunc() {
+            return ctx.filterFunc;
+        },    
     }
 }
